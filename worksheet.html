@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESL Worksheet - The Amazing Honeybee</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Open+Sans:wght@400;600;700&display=swap');
+  
+  :root {
+    --a1-color: #2e7d32; /* Deep Green */
+    --a2-color: #1565c0; /* Deep Blue */
+    --verb-bg: #fff59d;
+    --phrase-dashed: #c2185b;
+    --vocab-line: #0d47a1;
+    --phrase-bold: #c2185b;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background: #e0e0e0;
+    font-family: 'Open Sans', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+
+  .page {
+    width: 210mm;
+    height: 296mm;
+    padding: 12mm 15mm;
+    box-sizing: border-box;
+    background: white;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  }
+
+  @media print {
+    body { background: white; gap: 0; padding: 0; }
+    .page { box-shadow: none; break-after: page; margin: 0; width: 100%; height: 100vh; }
+  }
+
+  /* --- Visual System: Header & Top --- */
+  .level-badge {
+    position: absolute;
+    top: 10mm;
+    right: 12mm;
+    padding: 6px 16px;
+    border-radius: 20px;
+    color: white;
+    font-weight: bold;
+    font-family: 'Merriweather', serif;
+    font-size: 14px;
+    letter-spacing: 1px;
+    z-index: 10;
+  }
+  .bg-a1 { background-color: var(--a1-color); }
+  .bg-a2 { background-color: var(--a2-color); }
+
+  .header {
+    margin-top: 30px; /* As requested */
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    font-weight: 600;
+    color: #444;
+    border-bottom: 2px solid #333;
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+  }
+  .header-item { display: flex; align-items: baseline; }
+  .header-item span { margin-right: 5px; }
+  .header-line { border-bottom: 1px solid #333; min-width: 100px; display: inline-block; }
+
+  .hero-img {
+    width: 100%;
+    height: 125px; /* 120-130px */
+    object-fit: cover;
+    object-position: center 20%;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  }
+
+  /* --- Content: Text --- */
+  .text-section {
+    margin-bottom: 20px;
+  }
+  .main-title {
+    font-family: 'Merriweather', serif;
+    font-size: 26px;
+    margin: 0 0 12px 0;
+    color: #222;
+    border-left: 5px solid;
+    padding-left: 12px;
+  }
+  .title-a1 { border-color: var(--a1-color); }
+  .title-a2 { border-color: var(--a2-color); }
+
+  .content-text {
+    font-size: 15px;
+    line-height: 1.5; /* Default, adjustable via JS logic if needed */
+    text-align: justify;
+    color: #333;
+  }
+  
+  /* Highlights */
+  .hl-verb { background-color: var(--verb-bg); padding: 0 3px; border-radius: 3px; }
+  .hl-phrase-a1 { border-bottom: 2px dashed var(--phrase-dashed); color: var(--phrase-dashed); font-weight: 600; text-decoration: none; }
+  .hl-vocab-a2 { border-bottom: 2px solid var(--vocab-line); color: var(--vocab-line); font-weight: 700; }
+  .hl-phrase-a2 { color: var(--phrase-bold); font-weight: 700; }
+
+  /* --- Toolkit / Scaffolding --- */
+  .toolkit-box {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    border: 1px solid #e0e0e0;
+  }
+  .toolkit-title {
+    font-family: 'Merriweather', serif;
+    font-size: 14px;
+    color: #444;
+    margin: 0 0 8px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 4px;
+  }
+  .toolkit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 20px;
+    font-size: 13px;
+  }
+  .toolkit-item { display: flex; justify-content: space-between; }
+  .tk-en { font-weight: 600; color: #333; }
+  .tk-cn { color: #666; font-size: 12px; }
+
+  /* Sentence Builder & Golden Sentence */
+  .scaffold-block {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #ddd;
+    font-size: 13px;
+  }
+  .sb-pattern { color: var(--a2-color); font-weight: 700; background: #e3f2fd; padding: 2px 6px; border-radius: 4px; }
+  .gs-text { font-style: italic; color: #555; }
+
+  /* --- Exercises Section (Waterfall) --- */
+  .exercises-section {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .ex-header {
+    font-family: 'Merriweather', serif;
+    font-size: 16px;
+    color: #222;
+    background: #eee;
+    padding: 5px 10px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+  }
+
+  .waterfall-container {
+    column-count: 2;
+    column-gap: 25px;
+    column-fill: balance;
+    flex-grow: 1;
+  }
+  
+  .question-card {
+    break-inside: avoid;
+    margin-bottom: 15px;
+    font-size: 14px;
+    line-height: 1.3;
+  }
+  
+  .q-stem { font-weight: 600; margin-bottom: 5px; display: block; }
+  .q-options { 
+    list-style: none; 
+    padding: 0; 
+    margin: 0; 
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 10px;
+  }
+  .q-opt { font-size: 13px; color: #444; }
+  .q-input-line { display: inline-block; border-bottom: 1px solid #333; width: 60px; }
+
+  /* --- Notes Area --- */
+  .notes-area {
+    margin-top: 10px;
+    border: 2px solid #eee;
+    border-radius: 8px;
+    padding: 10px;
+    background: #fff;
+  }
+  .notes-label {
+    font-size: 12px;
+    font-weight: bold;
+    color: #999;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    display: block;
+  }
+  .lines-container {
+    display: flex;
+    flex-direction: column;
+    gap: 18px; /* Line spacing */
+  }
+  .writing-line {
+    border-bottom: 1px solid #e0e0e0;
+    height: 1px;
+    width: 100%;
+  }
+
+</style>
+</head>
+<body>
+
+  <!-- PAGE 1: A1 LEVEL -->
+  <div class="page">
+    <div class="level-badge bg-a1">Level A1</div>
+    
+    <div class="header">
+      <div class="header-item"><span>Name:</span> <div class="header-line" style="width: 120px;"></div></div>
+      <div class="header-item"><span>Date:</span> <div class="header-line" style="width: 100px;"></div></div>
+      <div class="header-item"><span>Score:</span> <div class="header-line" style="width: 60px;"></div></div>
+    </div>
+
+    <!-- Image: Bees on flower -->
+    <img src="https://images.unsplash.com/photo-1587049352846-4a222e784d38?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Honeybee" class="hero-img">
+
+    <div class="text-section">
+      <h1 class="main-title title-a1">The Amazing Honeybee</h1>
+      <div class="content-text">
+        Bees are small insects. They <span class="hl-verb">live</span> in hives. They <span class="hl-verb">work</span> very hard. Bees <span class="hl-verb">make</span> sweet honey. People <span class="hl-verb">love</span> to <span class="hl-verb">eat</span> honey. Bees <span class="hl-verb">have</span> two wings. They <span class="hl-verb">fly</span> to flowers. They <span class="hl-verb">get</span> nectar from them. Bees <span class="hl-verb">carry</span> the nectar home. The queen bee is big. She <span class="hl-verb">lays</span> many eggs. Worker bees <span class="hl-verb">feed</span> the babies. Bees are <span class="hl-phrase-a1">important for us</span>. We must <span class="hl-phrase-a1">take care of</span> them. Do not <span class="hl-verb">hurt</span> the bees.
+      </div>
+    </div>
+
+    <div class="toolkit-box">
+      <h3 class="toolkit-title">Toolkit: Language Focus</h3>
+      <div class="toolkit-grid">
+        <div class="toolkit-item"><span class="tk-en">live &rarr; lived</span> <span class="tk-cn">居住</span></div>
+        <div class="toolkit-item"><span class="tk-en">fly &rarr; flew</span> <span class="tk-cn">飞</span></div>
+        <div class="toolkit-item"><span class="tk-en">make &rarr; made</span> <span class="tk-cn">制作</span></div>
+        <div class="toolkit-item"><span class="tk-en">hive</span> <span class="tk-cn">蜂巢</span></div>
+        <div class="toolkit-item"><span class="tk-en">insect</span> <span class="tk-cn">昆虫</span></div>
+        <div class="toolkit-item"><span class="tk-en">nectar</span> <span class="tk-cn">花蜜</span></div>
+      </div>
+    </div>
+
+    <div class="exercises-section">
+      <div class="ex-header">Exercises</div>
+      <div class="waterfall-container">
+        <!-- Q1: Fill in blank -->
+        <div class="question-card">
+          <span class="q-stem">1. Bees live in __________.</span>
+          <ul class="q-options">
+            <li class="q-opt">A. houses</li>
+            <li class="q-opt">B. hives</li>
+            <li class="q-opt">C. water</li>
+          </ul>
+        </div>
+        
+        <!-- Q2: True/False -->
+        <div class="question-card">
+          <span class="q-stem">2. Bees make salty honey.</span>
+          <ul class="q-options">
+            <li class="q-opt">A. True</li>
+            <li class="q-opt">B. False</li>
+          </ul>
+        </div>
+
+        <!-- Q3: Direct Info -->
+        <div class="question-card">
+          <span class="q-stem">3. Where do bees get nectar?</span>
+          <div class="q-opt">Answer: __________________</div>
+        </div>
+
+        <!-- Q4: Inference -->
+        <div class="question-card">
+          <span class="q-stem">4. Why do people like bees?</span>
+          <ul class="q-options">
+            <li class="q-opt">A. They are big.</li>
+            <li class="q-opt">B. They make honey.</li>
+            <li class="q-opt">C. They sleep a lot.</li>
+          </ul>
+        </div>
+
+        <!-- Q5: Vocab -->
+        <div class="question-card">
+          <span class="q-stem">5. A "queen bee" is ________.</span>
+          <ul class="q-options">
+            <li class="q-opt">A. a baby bee</li>
+            <li class="q-opt">B. a mother bee</li>
+            <li class="q-opt">C. a lazy bee</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="notes-area">
+        <span class="notes-label">Notes & Corrections</span>
+        <div class="lines-container">
+          <div class="writing-line"></div>
+          <div class="writing-line"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 2: A2 LEVEL -->
+  <div class="page">
+    <div class="level-badge bg-a2">Level A2</div>
+    
+    <div class="header">
+      <div class="header-item"><span>Name:</span> <div class="header-line" style="width: 120px;"></div></div>
+      <div class="header-item"><span>Date:</span> <div class="header-line" style="width: 100px;"></div></div>
+      <div class="header-item"><span>Score:</span> <div class="header-line" style="width: 60px;"></div></div>
+    </div>
+
+    <!-- Image: Beekeeper or Pollination -->
+    <img src="https://images.unsplash.com/photo-1555447405-058428d1deef?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Bees Pollinating" class="hero-img">
+
+    <div class="text-section">
+      <h1 class="main-title title-a2">Why Bees Matter</h1>
+      <div class="content-text">
+        Honeybees are incredible creatures that <span class="hl-phrase-a2">play a vital role</span> in our world. Most people know them for their sweet honey, but they do much more. Bees are <span class="hl-vocab-a2">pollinators</span>. When they land on flowers to collect nectar, they move <span class="hl-vocab-a2">pollen</span> from one flower to another. This helps plants grow fruits and vegetables. Apples, melons, and broccoli all <span class="hl-phrase-a2">depend on</span> bees.
+        <br><br>
+        Sadly, bee populations are <span class="hl-vocab-a2">declining</span> around the world. This is because of pollution and the loss of their homes. If bees disappear, we will have less food to eat. It is important to protect these hard-working insects. We can plant more flowers and stop using bad <span class="hl-vocab-a2">chemicals</span> in our gardens.
+      </div>
+    </div>
+
+    <div class="toolkit-box">
+      <h3 class="toolkit-title">Toolkit: Vocabulary & Structures</h3>
+      <div class="toolkit-grid">
+        <div class="toolkit-item"><span class="tk-en">pollinator</span> <span class="tk-cn">授粉者</span></div>
+        <div class="toolkit-item"><span class="tk-en">decline</span> <span class="tk-cn">下降/减少</span></div>
+        <div class="toolkit-item"><span class="tk-en">chemical</span> <span class="tk-cn">化学制品</span></div>
+        <div class="toolkit-item"><span class="tk-en">depend on</span> <span class="tk-cn">依赖/取决于</span></div>
+      </div>
+      <div class="scaffold-block">
+        <div><span class="sb-pattern">Pattern</span> It is important to [protect nature]. (做...很重要)</div>
+      </div>
+      <div class="scaffold-block">
+        <div><span class="sb-pattern">Grammar</span> Golden Sentence: "If bees disappear, we will have less food." (Conditional: If..., ...will...)</div>
+      </div>
+    </div>
+
+    <div class="exercises-section">
+      <div class="ex-header">Thinking Exercises</div>
+      <div class="waterfall-container">
+        <!-- Q1: Main Idea -->
+        <div class="question-card">
+          <span class="q-stem">1. What is the main idea of this text?</span>
+          <ul class="q-options">
+            <li class="q-opt">A. How to make honey.</li>
+            <li class="q-opt">B. Why bees are important.</li>
+            <li class="q-opt">C. Different types of flowers.</li>
+          </ul>
+        </div>
+
+        <!-- Q2: Detail -->
+        <div class="question-card">
+          <span class="q-stem">2. What do bees move between flowers?</span>
+          <ul class="q-options">
+            <li class="q-opt">A. Honey</li>
+            <li class="q-opt">B. Pollen</li>
+            <li class="q-opt">C. Water</li>
+          </ul>
+        </div>
+
+        <!-- Q3: Inference -->
+        <div class="question-card">
+          <span class="q-stem">3. Why are chemicals bad for bees?</span>
+          <ul class="q-options">
+            <li class="q-opt">A. They make bees strong.</li>
+            <li class="q-opt">B. They help flowers grow.</li>
+            <li class="q-opt">C. They can hurt or kill bees.</li>
+          </ul>
+        </div>
+
+        <!-- Q4: Sentence Completion -->
+        <div class="question-card">
+          <span class="q-stem">4. If we lose bees, we will have less ________.</span>
+          <div class="q-opt">Answer: __________________</div>
+        </div>
+
+        <!-- Q5: Critical Thinking -->
+        <div class="question-card">
+          <span class="q-stem">5. What can you do to help bees?</span>
+          <div class="q-opt" style="margin-top:5px; border-bottom:1px solid #999; width:100%; height:18px;"></div>
+          <div class="q-opt" style="margin-top:5px; border-bottom:1px solid #999; width:100%; height:18px;"></div>
+        </div>
+      </div>
+
+      <div class="notes-area">
+        <span class="notes-label">Teacher's Comments</span>
+        <div class="lines-container">
+          <div class="writing-line"></div>
+          <div class="writing-line"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
