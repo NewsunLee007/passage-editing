@@ -356,7 +356,7 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full bg-transparent text-slate-900 dark:text-slate-100">
+    <div className="flex flex-col md:flex-row h-full bg-transparent text-slate-900 dark:text-slate-100">
       {/* Toast Notification */}
       {showSuccessToast && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-300">
@@ -366,7 +366,7 @@ const Home: React.FC = () => {
       )}
 
       {/* Left Panel: Configuration */}
-      <div className="w-full md:w-1/3 min-w-[320px] bg-white/80 backdrop-blur border-r-0 md:border-r border-b md:border-b-0 border-gray-200 p-4 md:p-8 overflow-y-auto custom-scrollbar shadow-sm z-0 dark:bg-slate-950/60 dark:border-slate-800/70">
+      <div className="w-full md:w-1/3 min-w-[320px] h-[48vh] md:h-auto bg-white/80 backdrop-blur border-r-0 md:border-r border-b md:border-b-0 border-gray-200 p-4 md:p-8 overflow-y-auto custom-scrollbar shadow-sm z-0 dark:bg-slate-950/60 dark:border-slate-800/70">
         <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3 dark:text-slate-100">
           <div className="bg-blue-100 p-2 rounded-lg">
             <Wand2 className="w-5 h-5 text-blue-600" />
@@ -699,7 +699,7 @@ const Home: React.FC = () => {
       {/* Right Panel: Content Input */}
       <div
         className={clsx(
-          "flex-1 bg-gradient-to-br from-white to-blue-50/30 h-full flex flex-col overflow-hidden relative z-10 dark:from-slate-950 dark:to-slate-900"
+          "flex-1 bg-gradient-to-br from-white to-blue-50/30 h-[52vh] md:h-full flex flex-col overflow-auto relative z-10 dark:from-slate-950 dark:to-slate-900"
         )}
       >
         <div className={clsx("flex-1 flex flex-col h-full w-full p-4 sm:p-6 md:p-8")}>
