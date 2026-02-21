@@ -1,15 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, FileText, Settings, Info, GraduationCap, Moon, Sun, Edit3, History } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, Info, Moon, Sun, PenLine, History, Menu, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useTheme } from '../hooks/useTheme';
 
 const Layout: React.FC = () => {
   const { isDark, toggleTheme } = useTheme();
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
 
   const navItems = [
     { to: '/', label: '生成 (Generate)', icon: LayoutDashboard },
-    { to: '/edit', label: '编辑 (Edit)', icon: Edit3 },
+    { to: '/edit', label: '编辑 (Edit)', icon: PenLine },
     { to: '/preview', label: '预览 (Preview)', icon: FileText },
     { to: '/history', label: '历史 (History)', icon: History },
     { to: '/settings', label: '设置 (Settings)', icon: Settings },
@@ -23,7 +24,11 @@ const Layout: React.FC = () => {
         <div className="absolute -bottom-48 -right-48 h-[560px] w-[560px] rounded-full bg-gradient-to-tr from-indigo-200/50 to-sky-100/30 blur-3xl dark:from-indigo-500/20 dark:to-sky-400/10" />
       </div>
       {/* Sidebar */}
-      <aside className="w-72 bg-white/80 border-r border-gray-200 flex flex-col shadow-sm z-10 backdrop-blur dark:bg-slate-950/70 dark:border-slate-800/70">
+      <aside className={clsx(
+        "fixed inset-y-0 left-0 w-72 bg-white/80 border-r border-gray-200 flex flex-col shadow-sm z-30 backdrop-blur dark:bg-slate-950/70 dark:border-slate-800/70 transition-transform duration-300 ease-in-out",
+        "md:relative md:translate-x-0",
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
         <div className="p-6 flex items-center justify-between gap-4 border-b border-gray-100 bg-gradient-to-r from-blue-50/70 to-white/40 dark:border-slate-800/70 dark:from-slate-900/40 dark:to-slate-950/20">
           <div className="flex flex-col items-center w-full">
             <img src="https://p.ipic.vip/lhgb6n.png" alt="Logo" className="w-14 h-14 object-contain rounded-xl shadow-lg shadow-blue-200 mb-2" />
@@ -44,6 +49,7 @@ const Layout: React.FC = () => {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
                 clsx(
                   'flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 font-medium text-sm',
@@ -83,11 +89,35 @@ const Layout: React.FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="h-full w-full">
-          <Outlet />
-        </div>
-      </main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="md:hidden flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-slate-800 bg-white/80 backdrop-blur-sm">
+          <button onClick={() => setSidebarOpen(true)} className="p-2 text-gray-600 dark:text-gray-300">
+            <Menu className="w-6 h-6" />
+          </button>
+          <div className="flex flex-col items-center">
+            <h1 className="font-bold text-slate-800 text-base leading-tight tracking-tight dark:text-slate-100">
+              ESL阅读材料
+            </h1>
+            <h2 className="font-bold text-blue-600 text-xs leading-tight tracking-tight">
+              智能生成
+            </h2>
+          </div>
+          <div className="w-8"></div>
+        </header>
+        <main className="flex-1 overflow-auto">
+          <div className="h-full w-full">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+      
+      {/* Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/30 z-20 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+      )}
     </div>
   );
 };

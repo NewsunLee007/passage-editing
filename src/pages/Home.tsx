@@ -366,40 +366,40 @@ const Home: React.FC = () => {
       )}
 
       {/* Left Panel: Configuration */}
-      <div className="w-1/3 min-w-[320px] bg-white/80 backdrop-blur border-r border-gray-200 p-8 overflow-y-auto custom-scrollbar shadow-sm z-0 dark:bg-slate-950/60 dark:border-slate-800/70">
-        <h2 className="text-xl font-bold text-gray-800 mb-8 flex items-center gap-3 dark:text-slate-100">
+      <div className="w-full md:w-1/3 min-w-[320px] bg-white/80 backdrop-blur border-r-0 md:border-r border-b md:border-b-0 border-gray-200 p-4 md:p-8 overflow-y-auto custom-scrollbar shadow-sm z-0 dark:bg-slate-950/60 dark:border-slate-800/70">
+        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3 dark:text-slate-100">
           <div className="bg-blue-100 p-2 rounded-lg">
             <Wand2 className="w-5 h-5 text-blue-600" />
           </div>
           生成配置 (Configuration)
         </h2>
         
-        <div className="space-y-8">
+        <div className="space-y-6">
           {/* Basic Settings */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-gray-900 border-b border-gray-100 pb-2 mb-4 dark:text-slate-200 dark:border-slate-800/70">内容设置 (Content Settings)</h3>
             
             {/* Visibility Toggles */}
-            <div className="grid grid-cols-1 gap-2 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-1 gap-2 mb-4">
                 <div 
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors dark:bg-slate-900/30 dark:hover:bg-slate-900/50"
                     onClick={() => setShowCoverImage(!showCoverImage)}
                 >
-                    <span className="text-sm font-medium text-gray-700 dark:text-slate-300">封面图片 (Cover)</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-slate-300">封面图片</span>
                     {showCoverImage ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-gray-400" />}
                 </div>
                 <div 
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors dark:bg-slate-900/30 dark:hover:bg-slate-900/50"
                     onClick={() => setShowLanguageToolkit(!showLanguageToolkit)}
                 >
-                    <span className="text-sm font-medium text-gray-700 dark:text-slate-300">语言工具箱 (Toolkit)</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-slate-300">语言工具箱</span>
                     {showLanguageToolkit ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-gray-400" />}
                 </div>
                 <div 
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors dark:bg-slate-900/30 dark:hover:bg-slate-900/50"
                     onClick={() => setShowExercises(!showExercises)}
                 >
-                    <span className="text-sm font-medium text-gray-700 dark:text-slate-300">读后练习 (Exercises)</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-slate-300">读后练习</span>
                     {showExercises ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-gray-400" />}
                 </div>
             </div>
@@ -702,7 +702,7 @@ const Home: React.FC = () => {
           "flex-1 bg-gradient-to-br from-white to-blue-50/30 h-full flex flex-col overflow-hidden relative z-10 dark:from-slate-950 dark:to-slate-900"
         )}
       >
-        <div className={clsx("flex-1 flex flex-col h-full w-full p-6")}>
+        <div className={clsx("flex-1 flex flex-col h-full w-full p-4 sm:p-6 md:p-8")}>
           <div className="flex items-center justify-between mb-6 shrink-0">
              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2 dark:text-slate-100">
                 内容输入 (Input Source)
@@ -711,27 +711,31 @@ const Home: React.FC = () => {
                 <div className="flex bg-gray-100 rounded-lg p-1 shadow-inner dark:bg-slate-900/60">
                   <button 
                       onClick={() => setInputMode('text')}
-                      className={clsx("px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2", inputMode === 'text' ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-50 dark:text-slate-200/80 dark:hover:bg-slate-900/60")}
+                      className={clsx("px-2 sm:px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-1", inputMode === 'text' ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-50 dark:text-slate-200/80 dark:hover:bg-slate-900/60")}
                   >
-                      <FileText className="w-4 h-4" /> 文本
+                      <FileText className="w-4 h-4" />
+                      <span className="hidden sm:inline">文本</span>
                   </button>
                   <button 
                       onClick={() => setInputMode('url')}
-                      className={clsx("px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2", inputMode === 'url' ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-50 dark:text-slate-200/80 dark:hover:bg-slate-900/60")}
+                      className={clsx("px-2 sm:px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-1", inputMode === 'url' ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-50 dark:text-slate-200/80 dark:hover:bg-slate-900/60")}
                   >
-                      <LinkIcon className="w-4 h-4" /> 链接
+                      <LinkIcon className="w-4 h-4" />
+                      <span className="hidden sm:inline">链接</span>
                   </button>
                   <button 
                       onClick={() => setInputMode('file')}
-                      className={clsx("px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2", inputMode === 'file' ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-50 dark:text-slate-200/80 dark:hover:bg-slate-900/60")}
+                      className={clsx("px-2 sm:px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-1", inputMode === 'file' ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-50 dark:text-slate-200/80 dark:hover:bg-slate-900/60")}
                   >
-                      <FolderInput className="w-4 h-4" /> 导入
+                      <FolderInput className="w-4 h-4" />
+                      <span className="hidden sm:inline">文件</span>
                   </button>
                   <button 
                       onClick={() => setInputMode('image')}
-                      className={clsx("px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2", inputMode === 'image' ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-50 dark:text-slate-200/80 dark:hover:bg-slate-900/60")}
+                      className={clsx("px-2 sm:px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-1", inputMode === 'image' ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-50 dark:text-slate-200/80 dark:hover:bg-slate-900/60")}
                   >
-                      <ImageIcon className="w-4 h-4" /> 图片
+                      <ImageIcon className="w-4 h-4" />
+                      <span className="hidden sm:inline">图片</span>
                   </button>
                 </div>
              </div>
