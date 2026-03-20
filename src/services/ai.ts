@@ -1,6 +1,44 @@
-import { GenerateDraftResponse, GenerateWorksheetRequest, GenerateWorksheetResponse, WorksheetDraft } from '../types';
+import { DraftGoldenSentence, DraftGrammarPoint, DraftToolkitGroup, GenerateDraftResponse, GenerateWorksheetRequest, GenerateWorksheetResponse, WorksheetDraft } from '../types';
 import { DRAFT_SYSTEM_PROMPT, DRAFT_USER_PROMPT_TEMPLATE, SYSTEM_PROMPT, USER_PROMPT_TEMPLATE } from './prompts';
 import { PROVIDER_ENDPOINTS } from '../constants/endpoints';
+
+export interface AdjustSelectedTextRequest {
+  aiProvider: GenerateWorksheetRequest['aiProvider'];
+  apiKey: string;
+  model: string;
+  customEndpoint?: string;
+  selectedText: string;
+  contextText: string;
+  targetCefr: string;
+  difficultyAdjustment: 'much_easier' | 'easier' | 'same' | 'harder' | 'much_harder';
+  lengthAdjustment: 'shorter' | 'same' | 'longer';
+  expressionStyle: 'natural' | 'formal' | 'storytelling' | 'academic';
+  teacherInstruction?: string;
+  chatHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+}
+
+export interface AdjustSelectedTextResponse {
+  success: boolean;
+  text?: string;
+  error?: string;
+}
+
+export interface RegenerateToolkitRequest {
+  aiProvider: GenerateWorksheetRequest['aiProvider'];
+  apiKey: string;
+  model: string;
+  customEndpoint?: string;
+  articleText: string;
+  cefrLevel: string;
+}
+
+export interface RegenerateToolkitResponse {
+  success: boolean;
+  toolkit?: DraftToolkitGroup[];
+  grammarPoints?: DraftGrammarPoint[];
+  goldenSentences?: DraftGoldenSentence[];
+  error?: string;
+}
 
 function extractJsonObject(text: string): string | null {
   const cleaned = text
@@ -12,6 +50,292 @@ function extractJsonObject(text: string): string | null {
   const last = cleaned.lastIndexOf('}');
   if (first === -1 || last === -1 || last <= first) return null;
   return cleaned.slice(first, last + 1);
+}
+
+function extractPlainText(text: string): string {
+  return text
+    .replace(/^```[a-zA-Z]*\s*/i, '')
+    .replace(/```$/i, '')
+    .trim();
+}
+
+function getDifficultyLabel(value: AdjustSelectedTextRequest['difficultyAdjustment']) {
+  if (value === 'much_easier') return 'Make it much easier';
+  if (value === 'easier') return 'Make it slightly easier';
+  if (value === 'harder') return 'Make it slightly harder';
+  if (value === 'much_harder') return 'Make it much harder';
+  return 'Keep similar difficulty';
+}
+
+function getLengthLabel(value: AdjustSelectedTextRequest['lengthAdjustment']) {
+  if (value === 'shorter') return 'Make it shorter';
+  if (value === 'longer') return 'Make it longer';
+  return 'Keep similar length';
+}
+
+function getStyleLabel(value: AdjustSelectedTextRequest['expressionStyle']) {
+  if (value === 'formal') return 'Formal classroom style';
+  if (value === 'storytelling') return 'Storytelling style';
+  if (value === 'academic') return 'Academic explanatory style';
+  return 'Natural learner-friendly style';
+}
+
+export async function adjustSelectedText(request: AdjustSelectedTextRequest): Promise<AdjustSelectedTextResponse> {
+  const {
+    aiProvider,
+    apiKey,
+    model,
+    customEndpoint,
+    selectedText,
+    contextText,
+    targetCefr,
+    difficultyAdjustment,
+    lengthAdjustment,
+    expressionStyle,
+    teacherInstruction,
+    chatHistory = [],
+  } = request;
+
+  if (!apiKey) {
+    return { success: false, error: 'API Key is missing. Please configure it in Settings.' };
+  }
+
+  const historyText = chatHistory
+    .slice(-8)
+    .map((msg, index) => `${index + 1}. ${msg.role === 'user' ? 'Teacher' : 'AI'}: ${msg.content}`)
+    .join('\n');
+
+  const systemPrompt = [
+    'You are an ESL text rewriter.',
+    'Rewrite only the selected passage according to constraints.',
+    'Output plain text only, no markdown, no explanations, no quotes.',
+    'Keep original meaning unless teacher instruction asks for changes.',
+  ].join('\n');
+
+  const userPrompt = [
+    `Target CEFR: ${targetCefr.toUpperCase()}`,
+    `Difficulty: ${getDifficultyLabel(difficultyAdjustment)}`,
+    `Length: ${getLengthLabel(lengthAdjustment)}`,
+    `Expression: ${getStyleLabel(expressionStyle)}`,
+    teacherInstruction ? `Teacher instruction: ${teacherInstruction}` : '',
+    historyText ? `Conversation history:\n${historyText}` : '',
+    `Full paragraph context:\n${contextText}`,
+    `Selected text to rewrite:\n${selectedText}`,
+    'Return rewritten selected text only.',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  try {
+    let endpoint = '';
+    if (aiProvider === 'custom') {
+      endpoint = customEndpoint || 'https://api.openai.com/v1';
+    } else if (PROVIDER_ENDPOINTS[aiProvider]) {
+      endpoint = PROVIDER_ENDPOINTS[aiProvider];
+    }
+
+    if (aiProvider === 'anthropic') {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+          'dangerously-allow-browser': 'true',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 1200,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Anthropic API Error: ${response.status} - ${JSON.stringify(errorData)}`);
+      }
+      const data = await response.json();
+      const text = extractPlainText(data.content?.[0]?.text || '');
+      return text ? { success: true, text } : { success: false, error: 'No rewritten text returned.' };
+    }
+
+    if (aiProvider === 'gemini') {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Gemini API Error: ${response.status} - ${JSON.stringify(errorData)}`);
+      }
+      const data = await response.json();
+      const text = extractPlainText(data.candidates?.[0]?.content?.parts?.[0]?.text || '');
+      return text ? { success: true, text } : { success: false, error: 'No rewritten text returned.' };
+    }
+
+    if (!endpoint) endpoint = 'https://api.openai.com/v1';
+    const response = await fetch(`${endpoint}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 1200,
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`API Error: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+    }
+    const data = await response.json();
+    const text = extractPlainText(data.choices?.[0]?.message?.content || '');
+    return text ? { success: true, text } : { success: false, error: 'No rewritten text returned.' };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error occurred' };
+  }
+}
+
+export async function regenerateToolkitFromArticle(request: RegenerateToolkitRequest): Promise<RegenerateToolkitResponse> {
+  const { aiProvider, apiKey, model, customEndpoint, articleText, cefrLevel } = request;
+
+  if (!apiKey) {
+    return { success: false, error: 'API Key is missing. Please configure it in Settings.' };
+  }
+  if (!articleText.trim()) {
+    return { success: false, error: 'Article text is empty.' };
+  }
+
+  const systemPrompt = [
+    'You are an ESL teaching assistant.',
+    'Extract toolkit materials based only on the provided article text.',
+    'Return JSON only.',
+    'Do not use source text outside the given article.',
+  ].join('\n');
+
+  const userPrompt = [
+    `CEFR Level: ${cefrLevel.toUpperCase()}`,
+    'Task:',
+    '1) Build vocabulary toolkit from this exact text. Include important words and phrases that actually appear or are directly derived from the text context.',
+    '2) Grammar analysis should be flexible and insightful. Focus on useful patterns in this text. Provide 2-4 points.',
+    '   Grammar explanation language rule: explanations must be mainly in Chinese, with key English grammar terms in parentheses.',
+    '   Avoid fully-English explanations. Keep Chinese short and clear for learners.',
+    '3) Golden sentences must be high quality and representative. Select 2-4 exact sentences from the text and provide Chinese translation.',
+    'JSON schema:',
+    '{',
+    '  "toolkit": Array<{ "title": string, "items": Array<{ "word": string, "phonetic"?: string, "pos"?: string, "meaning": string }> }>,',
+    '  "grammarPoints": Array<{ "title": "中文语法名称（English Term）", "explanation": "中文为主，含关键英文术语", "example": string }>,',
+    '  "goldenSentences": Array<{ "sentence": string, "translation": string }>',
+    '}',
+    'Output JSON only, no markdown fences.',
+    'Article text:',
+    articleText,
+  ].join('\n\n');
+
+  try {
+    let endpoint = '';
+    if (aiProvider === 'custom') {
+      endpoint = customEndpoint || 'https://api.openai.com/v1';
+    } else if (PROVIDER_ENDPOINTS[aiProvider]) {
+      endpoint = PROVIDER_ENDPOINTS[aiProvider];
+    }
+
+    let rawText = '';
+
+    if (aiProvider === 'anthropic') {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+          'dangerously-allow-browser': 'true',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 2400,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Anthropic API Error: ${response.status} - ${JSON.stringify(errorData)}`);
+      }
+      const data = await response.json();
+      rawText = data.content?.[0]?.text || '';
+    } else if (aiProvider === 'gemini') {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Gemini API Error: ${response.status} - ${JSON.stringify(errorData)}`);
+      }
+      const data = await response.json();
+      rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } else {
+      if (!endpoint) endpoint = 'https://api.openai.com/v1';
+      const response = await fetch(`${endpoint}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.3,
+          max_tokens: 2400,
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`API Error: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+      }
+      const data = await response.json();
+      rawText = data.choices?.[0]?.message?.content || '';
+    }
+
+    const json = extractJsonObject(rawText);
+    if (!json) {
+      throw new Error('Invalid JSON toolkit output');
+    }
+
+    const parsed = JSON.parse(json) as {
+      toolkit?: DraftToolkitGroup[];
+      grammarPoints?: DraftGrammarPoint[];
+      goldenSentences?: DraftGoldenSentence[];
+    };
+
+    const toolkit = Array.isArray(parsed.toolkit) ? parsed.toolkit.filter((g) => g && g.title && Array.isArray(g.items) && g.items.length > 0) : [];
+    const grammarPoints = Array.isArray(parsed.grammarPoints) ? parsed.grammarPoints.filter((g) => g && g.title && g.explanation && g.example) : [];
+    const goldenSentences = Array.isArray(parsed.goldenSentences) ? parsed.goldenSentences.filter((g) => g && g.sentence && g.translation) : [];
+
+    if (!toolkit.length || !grammarPoints.length || !goldenSentences.length) {
+      throw new Error('Toolkit fields are incomplete');
+    }
+
+    return { success: true, toolkit, grammarPoints, goldenSentences };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error occurred' };
+  }
 }
 
 function normalizeDraft(params: {
@@ -364,6 +688,7 @@ export async function generateDraft(request: GenerateWorksheetRequest): Promise<
     showCoverImage = true,
     showExercises = true,
     showLanguageToolkit = true,
+    exerciseQuestionCount = 6,
     enableWordCount = false,
     targetWordCount = 300,
     wordCountTolerance = 20,
@@ -389,6 +714,7 @@ export async function generateDraft(request: GenerateWorksheetRequest): Promise<
     showExercises,
     showLanguageToolkit,
     showCoverImage,
+    exerciseQuestionCount,
   });
 
   try {
@@ -492,7 +818,10 @@ export async function generateWorksheet(request: GenerateWorksheetRequest): Prom
     articles, // New: Multi-article config
     showCoverImage = true,
     showExercises = true,
-    showLanguageToolkit = true
+    showLanguageToolkit = true,
+    showGrammarSection = true,
+    showGoldenSentences = true,
+    exerciseQuestionCount = 6
   } = request;
 
   if (!apiKey) {
@@ -520,7 +849,10 @@ export async function generateWorksheet(request: GenerateWorksheetRequest): Prom
     effectiveArticles,
     showCoverImage,
     showExercises,
-    showLanguageToolkit
+    showLanguageToolkit,
+    showGrammarSection,
+    showGoldenSentences,
+    exerciseQuestionCount
   );
 
   try {

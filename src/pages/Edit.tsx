@@ -1,13 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import Button from '../components/ui/Button';
 import TextArea from '../components/ui/TextArea';
 import Input from '../components/ui/Input';
+import Select from '../components/ui/Select';
 import { useWorksheetStore } from '../store/worksheet';
+import { useSettingsStore } from '../store/settings';
 import { renderWorksheetHtml } from '../services/render';
 import { DraftQuestion, DraftToolkitGroup, DraftToolkitItem, DraftGrammarPoint, DraftGoldenSentence } from '../types';
-import { FileText, Plus, Trash2, Edit3, ImageIcon, Eye, EyeOff, BookOpen, Sparkles, Quote, EyeIcon } from 'lucide-react';
+import { adjustSelectedText, regenerateToolkitFromArticle } from '../services/ai';
+import { FileText, Plus, Trash2, Edit3, ImageIcon, Eye, EyeOff, BookOpen, Sparkles, Quote, EyeIcon, MessageSquare, Send, X, RotateCcw, RefreshCw } from 'lucide-react';
 
 const splitParagraphs = (value: string) =>
   value
@@ -16,6 +19,13 @@ const splitParagraphs = (value: string) =>
     .filter(Boolean);
 
 const joinParagraphs = (paragraphs: string[]) => (paragraphs || []).join('\n\n');
+
+const normalizeArticleText = (value: string) => value.replace(/\s+/g, ' ').trim();
+
+type AssistantMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
 
 // 词汇编辑器组件
 const VocabEditor: React.FC<{
@@ -522,6 +532,7 @@ const ImageEditor: React.FC<{
 
 const Edit: React.FC = () => {
   const navigate = useNavigate();
+  const aiSettings = useSettingsStore();
   const {
     draft,
     setDraftParagraphs,
@@ -545,12 +556,35 @@ const Edit: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'content' | 'toolkit' | 'exercises' | 'image'>('content');
   const [toolkitSubTab, setToolkitSubTab] = useState<'vocab' | 'grammar' | 'golden'>('vocab');
+  const [selectionRange, setSelectionRange] = useState<{ start: number; end: number; text: string } | null>(null);
+  const [showAiAssistant, setShowAiAssistant] = useState(false);
+  const [targetCefr, setTargetCefr] = useState('A1');
+  const [difficultyAdjustment, setDifficultyAdjustment] = useState<'much_easier' | 'easier' | 'same' | 'harder' | 'much_harder'>('same');
+  const [lengthAdjustment, setLengthAdjustment] = useState<'shorter' | 'same' | 'longer'>('same');
+  const [expressionStyle, setExpressionStyle] = useState<'natural' | 'formal' | 'storytelling' | 'academic'>('natural');
+  const [assistantInput, setAssistantInput] = useState('');
+  const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([]);
+  const [isAdjustingText, setIsAdjustingText] = useState(false);
+  const [lastGeneratedText, setLastGeneratedText] = useState('');
+  const [articleTuneCefr, setArticleTuneCefr] = useState('A1');
+  const [articleTuneDifficulty, setArticleTuneDifficulty] = useState<'much_easier' | 'easier' | 'same' | 'harder' | 'much_harder'>('same');
+  const [articleTuneLength, setArticleTuneLength] = useState<'shorter' | 'same' | 'longer'>('same');
+  const [isTuningArticle, setIsTuningArticle] = useState(false);
+  const [isRegeneratingToolkit, setIsRegeneratingToolkit] = useState(false);
+  const [toolkitSyncMap, setToolkitSyncMap] = useState<Record<number, string>>({});
+  const [aiRewriteHistoryMap, setAiRewriteHistoryMap] = useState<Record<number, string[]>>({});
+  const paragraphTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const active = draft?.articles?.[activeIndex];
 
   const resetEditors = (idx: number) => {
     setActiveTab('content');
     setToolkitSubTab('vocab');
+    setSelectionRange(null);
+    setShowAiAssistant(false);
+    setAssistantInput('');
+    setAssistantMessages([]);
+    setLastGeneratedText('');
   };
 
   const canRender = Boolean(draft && draft.articles && draft.articles.length > 0);
@@ -558,6 +592,174 @@ const Edit: React.FC = () => {
   const titleValue = active?.title ?? '';
   const cefrValue = active?.cefrLevel ?? '';
   const paragraphsValue = useMemo(() => joinParagraphs(active?.paragraphs || []), [active?.paragraphs]);
+  const normalizedActiveText = normalizeArticleText(paragraphsValue);
+  const toolkitBaseText = toolkitSyncMap[activeIndex] || '';
+  const isToolkitOutdated = Boolean(toolkitBaseText) && normalizedActiveText !== toolkitBaseText;
+  const canUndoAiRewrite = (aiRewriteHistoryMap[activeIndex] || []).length > 0;
+
+  useEffect(() => {
+    setTargetCefr((active?.cefrLevel || 'A1').toUpperCase());
+    setArticleTuneCefr((active?.cefrLevel || 'A1').toUpperCase());
+  }, [active?.cefrLevel, activeIndex]);
+
+  useEffect(() => {
+    if (!draft?.articles?.length) return;
+    setToolkitSyncMap((prev) => {
+      const next = { ...prev };
+      draft.articles.forEach((article, idx) => {
+        if (!next[idx]) {
+          next[idx] = normalizeArticleText(joinParagraphs(article.paragraphs || []));
+        }
+      });
+      return next;
+    });
+  }, [draft?.articles]);
+
+  const handleParagraphSelection = () => {
+    const textarea = paragraphTextAreaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart || 0;
+    const end = textarea.selectionEnd || 0;
+    if (end <= start) {
+      setSelectionRange(null);
+      return;
+    }
+    const rawText = textarea.value.slice(start, end);
+    const text = rawText.trim();
+    if (!text) {
+      setSelectionRange(null);
+      return;
+    }
+    setSelectionRange({ start, end, text });
+    setShowAiAssistant(true);
+  };
+
+  const applyReplacementToSelection = (replacement: string) => {
+    if (!selectionRange) return;
+    const nextText = `${paragraphsValue.slice(0, selectionRange.start)}${replacement}${paragraphsValue.slice(selectionRange.end)}`;
+    setDraftParagraphs(activeIndex, splitParagraphs(nextText));
+    const nextEnd = selectionRange.start + replacement.length;
+    setSelectionRange({ start: selectionRange.start, end: nextEnd, text: replacement });
+  };
+
+  const pushAiRewriteSnapshot = () => {
+    const snapshot = paragraphsValue;
+    setAiRewriteHistoryMap((prev) => {
+      const stack = prev[activeIndex] || [];
+      if (stack[stack.length - 1] === snapshot) return prev;
+      return { ...prev, [activeIndex]: [...stack, snapshot] };
+    });
+  };
+
+  const undoLastAiRewrite = () => {
+    const stack = aiRewriteHistoryMap[activeIndex] || [];
+    if (!stack.length) return;
+    const previous = stack[stack.length - 1];
+    setDraftParagraphs(activeIndex, splitParagraphs(previous));
+    setAiRewriteHistoryMap((prev) => ({
+      ...prev,
+      [activeIndex]: (prev[activeIndex] || []).slice(0, -1),
+    }));
+  };
+
+  const runAiAdjustment = async () => {
+    if (!active || !selectionRange || !selectionRange.text.trim()) return;
+    const userMessage =
+      `目标 ${targetCefr.toUpperCase()}｜难度 ${difficultyAdjustment}｜长度 ${lengthAdjustment}｜表达 ${expressionStyle}` +
+      (assistantInput.trim() ? `｜补充：${assistantInput.trim()}` : '');
+    const nextHistory = [...assistantMessages, { role: 'user' as const, content: userMessage }];
+    setAssistantMessages(nextHistory);
+    setIsAdjustingText(true);
+    try {
+      const result = await adjustSelectedText({
+        aiProvider: aiSettings.aiProvider,
+        apiKey: aiSettings.apiKey,
+        model: aiSettings.aiProvider === 'custom' ? (aiSettings.customModelName || aiSettings.model) : aiSettings.model,
+        customEndpoint: aiSettings.customEndpoint,
+        selectedText: selectionRange.text,
+        contextText: paragraphsValue,
+        targetCefr,
+        difficultyAdjustment,
+        lengthAdjustment,
+        expressionStyle,
+        teacherInstruction: assistantInput.trim(),
+        chatHistory: nextHistory,
+      });
+      if (!result.success || !result.text) {
+        alert(result.error || '文本调整失败');
+        return;
+      }
+      pushAiRewriteSnapshot();
+      setAssistantMessages((prev) => [...prev, { role: 'assistant', content: result.text || '' }]);
+      setLastGeneratedText(result.text);
+      applyReplacementToSelection(result.text);
+      setAssistantInput('');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '文本调整失败');
+    } finally {
+      setIsAdjustingText(false);
+    }
+  };
+
+  const runArticleTuning = async () => {
+    if (!active || !paragraphsValue.trim()) return;
+    setIsTuningArticle(true);
+    try {
+      const result = await adjustSelectedText({
+        aiProvider: aiSettings.aiProvider,
+        apiKey: aiSettings.apiKey,
+        model: aiSettings.aiProvider === 'custom' ? (aiSettings.customModelName || aiSettings.model) : aiSettings.model,
+        customEndpoint: aiSettings.customEndpoint,
+        selectedText: paragraphsValue,
+        contextText: paragraphsValue,
+        targetCefr: articleTuneCefr,
+        difficultyAdjustment: articleTuneDifficulty,
+        lengthAdjustment: articleTuneLength,
+        expressionStyle: 'natural',
+        teacherInstruction: 'Rewrite the full passage while preserving key facts and structure.',
+      });
+      if (!result.success || !result.text) {
+        alert(result.error || '文章调节失败');
+        return;
+      }
+      pushAiRewriteSnapshot();
+      setDraftParagraphs(activeIndex, splitParagraphs(result.text));
+      updateDraftArticle(activeIndex, { cefrLevel: articleTuneCefr.toUpperCase() });
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '文章调节失败');
+    } finally {
+      setIsTuningArticle(false);
+    }
+  };
+
+  const regenerateToolkit = async () => {
+    if (!active || !paragraphsValue.trim()) return;
+    setIsRegeneratingToolkit(true);
+    try {
+      const result = await regenerateToolkitFromArticle({
+        aiProvider: aiSettings.aiProvider,
+        apiKey: aiSettings.apiKey,
+        model: aiSettings.aiProvider === 'custom' ? (aiSettings.customModelName || aiSettings.model) : aiSettings.model,
+        customEndpoint: aiSettings.customEndpoint,
+        articleText: paragraphsValue,
+        cefrLevel: active.cefrLevel || articleTuneCefr,
+      });
+      if (!result.success || !result.toolkit || !result.grammarPoints || !result.goldenSentences) {
+        alert(result.error || '重生成语言工具箱失败');
+        return;
+      }
+      setDraftToolkit(activeIndex, result.toolkit);
+      updateDraftArticle(activeIndex, {
+        grammarPoints: result.grammarPoints,
+        goldenSentences: result.goldenSentences,
+      });
+      setToolkitSyncMap((prev) => ({ ...prev, [activeIndex]: normalizeArticleText(paragraphsValue) }));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '重生成语言工具箱失败');
+    } finally {
+      setIsRegeneratingToolkit(false);
+    }
+  };
 
   // Initialize toolkit visibility flags if not set
   const showVocab = active?.showToolkitVocab !== false;
@@ -779,21 +981,114 @@ const Edit: React.FC = () => {
                   placeholder="例如：B1"
                 />
 
+                <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-3 dark:bg-slate-900/30 dark:border-slate-700">
+                  <div className="text-sm font-semibold text-gray-800 mb-2 dark:text-slate-200">
+                    文章难度二次调节
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <Select
+                      label="目标等级"
+                      value={articleTuneCefr}
+                      onChange={(e) => setArticleTuneCefr(e.target.value)}
+                      options={[
+                        { value: 'A1', label: 'A1' },
+                        { value: 'A2', label: 'A2' },
+                        { value: 'B1', label: 'B1' },
+                        { value: 'B2', label: 'B2' },
+                        { value: 'C1', label: 'C1' },
+                        { value: 'C2', label: 'C2' },
+                      ]}
+                    />
+                    <Select
+                      label="难度方向"
+                      value={articleTuneDifficulty}
+                      onChange={(e) => setArticleTuneDifficulty(e.target.value as any)}
+                      options={[
+                        { value: 'much_easier', label: '大幅降低' },
+                        { value: 'easier', label: '略微降低' },
+                        { value: 'same', label: '保持不变' },
+                        { value: 'harder', label: '略微提高' },
+                        { value: 'much_harder', label: '大幅提高' },
+                      ]}
+                    />
+                    <Select
+                      label="长度方向"
+                      value={articleTuneLength}
+                      onChange={(e) => setArticleTuneLength(e.target.value as any)}
+                      options={[
+                        { value: 'shorter', label: '更短' },
+                        { value: 'same', label: '保持' },
+                        { value: 'longer', label: '更长' },
+                      ]}
+                    />
+                  </div>
+                  <Button
+                    className="w-full mt-3"
+                    onClick={runArticleTuning}
+                    isLoading={isTuningArticle}
+                    disabled={!paragraphsValue.trim()}
+                  >
+                    {isTuningArticle ? 'AI 正在重写全文...' : '按设定重写当前文章'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full mt-2"
+                    onClick={undoLastAiRewrite}
+                    disabled={!canUndoAiRewrite}
+                  >
+                    <RotateCcw className="w-4 h-4 mr-1" />
+                    撤销上次 AI 改写
+                  </Button>
+                </div>
+
                 <div className="flex-1">
                   <TextArea
+                    ref={paragraphTextAreaRef}
                     label="正文 (Paragraphs)"
                     value={paragraphsValue}
                     onChange={(e) => setDraftParagraphs(activeIndex, splitParagraphs(e.target.value))}
+                    onMouseUp={handleParagraphSelection}
+                    onKeyUp={handleParagraphSelection}
                     placeholder="用空行分隔段落"
                     className="min-h-[300px]"
                   />
                 </div>
+                {selectionRange && (
+                  <div className="rounded-xl border border-blue-200 bg-blue-50/70 px-3 py-2 text-xs text-blue-700 dark:border-sky-800 dark:bg-sky-900/20 dark:text-sky-300">
+                    已选中 {selectionRange.text.length} 个字符，可用右下角 AI 浮窗做难度、长短和表达方式调整
+                  </div>
+                )}
+                {isToolkitOutdated && (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                    当前正文已发生变化，语言工具箱可能不匹配。请前往「语言工具箱」重新生成配套素材。
+                  </div>
+                )}
               </div>
             )}
 
             {/* Toolkit Tab */}
             {activeTab === 'toolkit' && (
               <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="px-4 pt-3">
+                  <div className={clsx(
+                    'rounded-xl border px-3 py-2 text-xs',
+                    isToolkitOutdated
+                      ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300'
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300'
+                  )}>
+                    {isToolkitOutdated ? '正文与工具箱素材不一致，请重生成。' : '工具箱素材与当前正文保持同步。'}
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full mt-2"
+                    onClick={regenerateToolkit}
+                    isLoading={isRegeneratingToolkit}
+                    disabled={!paragraphsValue.trim()}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                    {isRegeneratingToolkit ? '重生成中...' : '基于当前正文重生成工具箱'}
+                  </Button>
+                </div>
                 {/* Sub-module toggles */}
                 <div className="flex gap-2 px-4 pt-2 pb-2 shrink-0">
                   <button
@@ -942,6 +1237,123 @@ const Edit: React.FC = () => {
           <Button variant="primary" className="flex-1" onClick={handleRender} disabled={!canRender}>排版预览</Button>
         </div>
       </div>
+      {showAiAssistant && selectionRange && activeTab === 'content' && (
+        <div className="fixed right-6 bottom-6 w-[360px] max-h-[72vh] rounded-2xl border border-slate-200 bg-white shadow-2xl z-50 flex flex-col dark:bg-slate-900 dark:border-slate-700">
+          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
+              <MessageSquare className="w-4 h-4 text-blue-600" />
+              选中文本 AI 调整
+            </div>
+            <button
+              type="button"
+              className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
+              onClick={() => setShowAiAssistant(false)}
+            >
+              <X className="w-4 h-4 text-slate-500" />
+            </button>
+          </div>
+          <div className="px-4 py-3 space-y-3 overflow-y-auto">
+            <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-2 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300">
+              {selectionRange.text.length > 180 ? `${selectionRange.text.slice(0, 180)}...` : selectionRange.text}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Select
+                label="目标等级"
+                value={targetCefr}
+                onChange={(e) => setTargetCefr(e.target.value)}
+                options={[
+                  { value: 'A1', label: 'A1' },
+                  { value: 'A2', label: 'A2' },
+                  { value: 'B1', label: 'B1' },
+                  { value: 'B2', label: 'B2' },
+                  { value: 'C1', label: 'C1' },
+                  { value: 'C2', label: 'C2' },
+                ]}
+              />
+              <Select
+                label="难度调整"
+                value={difficultyAdjustment}
+                onChange={(e) => setDifficultyAdjustment(e.target.value as any)}
+                options={[
+                  { value: 'much_easier', label: '大幅降低' },
+                  { value: 'easier', label: '略微降低' },
+                  { value: 'same', label: '保持不变' },
+                  { value: 'harder', label: '略微提高' },
+                  { value: 'much_harder', label: '大幅提高' },
+                ]}
+              />
+              <Select
+                label="长度调整"
+                value={lengthAdjustment}
+                onChange={(e) => setLengthAdjustment(e.target.value as any)}
+                options={[
+                  { value: 'shorter', label: '更短' },
+                  { value: 'same', label: '保持' },
+                  { value: 'longer', label: '更长' },
+                ]}
+              />
+              <Select
+                label="表达方式"
+                value={expressionStyle}
+                onChange={(e) => setExpressionStyle(e.target.value as any)}
+                options={[
+                  { value: 'natural', label: '自然易懂' },
+                  { value: 'formal', label: '课堂正式' },
+                  { value: 'storytelling', label: '叙事风格' },
+                  { value: 'academic', label: '学术说明' },
+                ]}
+              />
+            </div>
+            <TextArea
+              label="补充指令"
+              rows={2}
+              value={assistantInput}
+              onChange={(e) => setAssistantInput(e.target.value)}
+              placeholder="例如：保留核心信息，尽量用高频词"
+            />
+            {lastGeneratedText && (
+              <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300">
+                已自动替换最新结果，可继续对话微调
+              </div>
+            )}
+            <div className="space-y-2 max-h-[180px] overflow-y-auto">
+              {assistantMessages.map((msg, index) => (
+                <div
+                  key={`${msg.role}-${index}`}
+                  className={clsx(
+                    'text-xs rounded-lg px-2.5 py-2 border',
+                    msg.role === 'user'
+                      ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200'
+                  )}
+                >
+                  {msg.content}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700">
+            <Button
+              className="w-full"
+              onClick={runAiAdjustment}
+              isLoading={isAdjustingText}
+              disabled={!selectionRange.text.trim()}
+            >
+              <Send className="w-4 h-4 mr-1" />
+              {isAdjustingText ? 'AI 调整中...' : '发送并应用'}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full mt-2"
+              onClick={undoLastAiRewrite}
+              disabled={!canUndoAiRewrite}
+            >
+              <RotateCcw className="w-4 h-4 mr-1" />
+              撤销上次 AI 改写
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

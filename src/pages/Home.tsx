@@ -81,6 +81,8 @@ const Home: React.FC = () => {
     setShowGrammarSection,
     showGoldenSentences,
     setShowGoldenSentences,
+    exerciseQuestionCount,
+    setExerciseQuestionCount,
     setDraft
   } = useWorksheetStore();
   
@@ -334,6 +336,7 @@ const Home: React.FC = () => {
         showLanguageToolkit,
         showGrammarSection,
         showGoldenSentences,
+        exerciseQuestionCount,
       });
 
       if (result.success && result.draft) {
@@ -414,6 +417,20 @@ const Home: React.FC = () => {
                   max="5"
                   value={articleCount}
                   onChange={(e) => setArticleCount(parseInt(e.target.value) || 1)}
+                  className="w-full px-3 py-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 border-gray-300 bg-white/90 text-slate-900 dark:bg-slate-950/40 dark:text-slate-100 dark:border-slate-700"
+                />
+             </div>
+
+             <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-slate-300">
+                  读后练习数量 (Exercise Count)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={exerciseQuestionCount}
+                  onChange={(e) => setExerciseQuestionCount(parseInt(e.target.value) || 1)}
                   className="w-full px-3 py-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 border-gray-300 bg-white/90 text-slate-900 dark:bg-slate-950/40 dark:text-slate-100 dark:border-slate-700"
                 />
              </div>

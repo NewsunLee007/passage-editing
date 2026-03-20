@@ -28,6 +28,7 @@ interface WorksheetState {
   showLanguageToolkit: boolean;
   showGrammarSection: boolean;
   showGoldenSentences: boolean;
+  exerciseQuestionCount: number;
 
   // Word Count Control
   enableWordCount: boolean;
@@ -59,6 +60,7 @@ interface WorksheetState {
   setShowLanguageToolkit: (show: boolean) => void;
   setShowGrammarSection: (show: boolean) => void;
   setShowGoldenSentences: (show: boolean) => void;
+  setExerciseQuestionCount: (count: number) => void;
 
   // Word Count Actions
   setEnableWordCount: (enable: boolean) => void;
@@ -114,6 +116,7 @@ export const useWorksheetStore = create<WorksheetState>()(
       showLanguageToolkit: true,
       showGrammarSection: true,
       showGoldenSentences: true,
+      exerciseQuestionCount: 6,
       enableWordCount: false,
       targetWordCount: 300,
       wordCountTolerance: 20,
@@ -171,6 +174,7 @@ export const useWorksheetStore = create<WorksheetState>()(
       setShowLanguageToolkit: (show) => set({ showLanguageToolkit: show }),
       setShowGrammarSection: (show) => set({ showGrammarSection: show }),
       setShowGoldenSentences: (show) => set({ showGoldenSentences: show }),
+      setExerciseQuestionCount: (count) => set({ exerciseQuestionCount: Math.max(1, Math.min(20, count || 1)) }),
 
       setEnableWordCount: (enable) => set({ enableWordCount: enable }),
       setTargetWordCount: (count) => set({ targetWordCount: count }),
@@ -267,6 +271,7 @@ export const useWorksheetStore = create<WorksheetState>()(
         showLanguageToolkit: state.showLanguageToolkit,
         showGrammarSection: state.showGrammarSection,
         showGoldenSentences: state.showGoldenSentences,
+        exerciseQuestionCount: state.exerciseQuestionCount,
         enableWordCount: state.enableWordCount,
         targetWordCount: state.targetWordCount,
         wordCountTolerance: state.wordCountTolerance,

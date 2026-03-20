@@ -183,6 +183,8 @@ Language Toolkit Requirements (when enabled):
 Grammar Points Requirements (when enabled):
 - EXTRACT 2-3 key grammar points FROM THE GENERATED ARTICLE CONTENT.
 - Analyze the article paragraphs and identify actual grammar structures used in the text.
+- Explanation language rule: use Chinese as the main language, and keep key grammar terms in English in parentheses.
+- Keep explanation learner-friendly: short Chinese sentences, avoid fully English explanations.
 - CRITICAL: The example sentence MUST ACTUALLY USE the grammar structure being explained.
 - For example:
   - If explaining "There be" structure, the example MUST contain "There is/are/was/were..."
@@ -190,7 +192,7 @@ Grammar Points Requirements (when enabled):
   - If explaining "Passive Voice", the example MUST contain "be + past participle" structure
 - DO NOT force a grammar point if the article doesn't contain clear examples of it.
 - It's better to have fewer accurate grammar points than incorrect ones.
-- Format: { "title": "语法名称", "explanation": "中文解释", "example": "必须使用文章中包含该语法的原句" }
+- Format: { "title": "中文语法名称（English Term）", "explanation": "中文为主，包含必要英文术语", "example": "必须使用文章中包含该语法的原句" }
 
 Golden Sentences Requirements (when enabled):
 - EXTRACT 2-3 excellent sentences DIRECTLY FROM THE GENERATED ARTICLE.
@@ -199,7 +201,7 @@ Golden Sentences Requirements (when enabled):
 - Format: { "sentence": "Exact sentence from article", "translation": "中文翻译" }
 
 Exercise Requirements (when enabled):
-- Each article MUST have at least 5 exercises (minimum 5 questions).
+- Each article MUST have exactly the requested exerciseQuestionCount questions.
 - Group questions by type: arrange same-type questions consecutively (e.g., all MCQs together, then all T/F questions).
 - Suggested order: MCQs first (1-3), then True/False (4-5), then Blank Filling (6-7), then Short Answer (8+).
 - Questions should test comprehension of the article content.
@@ -222,6 +224,7 @@ export const DRAFT_USER_PROMPT_TEMPLATE = (params: {
   showExercises: boolean;
   showLanguageToolkit: boolean;
   showCoverImage: boolean;
+  exerciseQuestionCount: number;
 }) => {
   const {
     text,
@@ -233,6 +236,7 @@ export const DRAFT_USER_PROMPT_TEMPLATE = (params: {
     showExercises,
     showLanguageToolkit,
     showCoverImage,
+    exerciseQuestionCount,
   } = params;
 
   const formatTenses = (tenses?: string[]) => {
@@ -280,6 +284,7 @@ Visibility:
 - Cover Image: ${showCoverImage ? 'ON (choose layout banner/side/inline)' : 'OFF'}
 - Language Toolkit: ${showLanguageToolkit ? 'ON (MUST include vocabulary, grammar points, and golden sentences)' : 'OFF'}
 - Exercises: ${showExercises ? 'ON' : 'OFF'}
+${showExercises ? `- Exercise Question Count: ${exerciseQuestionCount} per article` : ''}
 
 CRITICAL REQUIREMENT for Language Toolkit:
 When Language Toolkit is ON, you MUST generate ALL THREE sub-modules in the JSON output:
@@ -312,7 +317,8 @@ export const USER_PROMPT_TEMPLATE = (
   showExercises: boolean = true,
   showLanguageToolkit: boolean = true,
   showGrammarSection: boolean = true,
-  showGoldenSentences: boolean = true
+  showGoldenSentences: boolean = true,
+  exerciseQuestionCount: number = 6
 ) => {
   let articleInstructions = '';
   
@@ -389,6 +395,7 @@ Design Constraints:
 ${showCoverImage && imageUrl ? `- Cover Image Layout: You MAY place the cover image as a banner, side image, or small inline image depending on available space. Prefer layouts that do not push content onto extra pages. If you use an image, include \`<img src="${imageUrl}" class="hero-img" />\` within the article's first page.` : '- **MANDATORY**: DO NOT include any <img> tags for cover images.'}
 ${toolkitInstructions}
 ${exerciseInstructions}
+${showExercises ? `- Generate exactly ${exerciseQuestionCount} exercise questions for each article.` : ''}
 ${indentationInstructions}
 - Ensure all text is visible and legible.
 

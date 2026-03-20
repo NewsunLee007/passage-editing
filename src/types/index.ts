@@ -52,6 +52,7 @@ export interface GenerateWorksheetRequest {
 
   // New: Image Content Source (Base64)
   contentImage?: string;
+  exerciseQuestionCount?: number;
 }
 
 // Detailed grade levels

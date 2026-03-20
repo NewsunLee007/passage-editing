@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSettingsStore } from '../store/settings';
 import { AI_PROVIDERS, MODEL_OPTIONS } from '../constants/ai';
 import Input from '../components/ui/Input';
@@ -6,7 +6,7 @@ import Select from '../components/ui/Select';
 import Button from '../components/ui/Button';
 import { Save, RefreshCw, Info, Link2, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { AIProvider } from '../types';
-import { fetchModelOptions, ModelOption } from '../services/models';
+import { fetchModelOptions } from '../services/models';
 
 const Settings: React.FC = () => {
   const { aiProvider, apiKey, model, customEndpoint, customModelName, updateSettings, fetchedModels, setFetchedModels, ocrEndpoint } = useSettingsStore();
@@ -68,12 +68,33 @@ const Settings: React.FC = () => {
   const remoteForCurrent = fetchedModels?.[aiProvider];
   const effectiveModelOptions = remoteForCurrent?.options?.length ? remoteForCurrent.options : currentModelOptions;
   
-  const [isManualModel, setIsManualModel] = useState(() => {
-      if (aiProvider === 'custom') return false;
-      if (!model) return false;
-      const inList = effectiveModelOptions.some(o => o.value === model);
-      return !inList;
-  });
+  const baseModelOptions = effectiveModelOptions;
+  const modelOptions = useMemo(() => {
+    if (!model) return baseModelOptions;
+    const inList = baseModelOptions.some((o) => o.value === model);
+    if (inList) return baseModelOptions;
+    return [{ value: model, label: `${model} (已保存)` }, ...baseModelOptions];
+  }, [baseModelOptions, model]);
+
+  const [isManualModel, setIsManualModel] = useState(false);
+
+  useEffect(() => {
+    if (aiProvider === 'custom') {
+      setIsManualModel(false);
+      return;
+    }
+    if (isManualModel && !model) {
+      return;
+    }
+    if (!model) {
+      setIsManualModel(false);
+      return;
+    }
+    const inList = modelOptions.some((o) => o.value === model);
+    if (!inList) {
+      setIsManualModel(true);
+    }
+  }, [aiProvider, model, modelOptions, isManualModel]);
 
   const refreshModels = async () => {
     setModelsError(null);
@@ -103,7 +124,6 @@ const Settings: React.FC = () => {
     }
   };
 
-  const modelOptions = effectiveModelOptions;
   const hasRemoteModels = !!remoteForCurrent?.options?.length;
 
   return (
