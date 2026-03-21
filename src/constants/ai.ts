@@ -6,6 +6,7 @@ export const AI_PROVIDERS = [
   { id: 'moonshot', name: 'Moonshot AI (Kimi)', defaultModel: 'moonshot-v1-8k' },
   { id: 'qwen', name: 'Alibaba Qwen (通义千问)', defaultModel: 'qwen-turbo' },
   { id: 'zhipu', name: 'Zhipu GLM (智谱清言)', defaultModel: 'glm-4' },
+  { id: 'xiaomi', name: 'Xiaomi MiMo (小米)', defaultModel: 'mimo-v2-flash' },
   { id: 'custom', name: '自定义接口 (Custom OpenAI Compatible)', defaultModel: '' },
 ];
 
@@ -43,5 +44,11 @@ export const MODEL_OPTIONS: Record<string, { value: string; label: string }[]> =
     { value: 'glm-4-air', label: 'GLM-4 Air' },
     { value: 'glm-4-flash', label: 'GLM-4 Flash' },
     { value: 'glm-3-turbo', label: 'GLM-3 Turbo' },
+  ],
+  xiaomi: [
+    { value: 'mimo-v2-flash', label: 'MiMo V2 Flash' },
+    { value: 'mimo-v2-pro', label: 'MiMo V2 Pro' },
+    { value: 'mimo-v2-omni', label: 'MiMo V2 Omni' },
+    { value: 'mimo-v2-tts', label: 'MiMo V2 TTS' },
   ],
 };

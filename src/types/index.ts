@@ -1,4 +1,4 @@
-export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'moonshot' | 'qwen' | 'zhipu' | 'custom';
+export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'moonshot' | 'qwen' | 'zhipu' | 'xiaomi' | 'custom';
 
 export interface UserSettings {
   aiProvider: AIProvider;
